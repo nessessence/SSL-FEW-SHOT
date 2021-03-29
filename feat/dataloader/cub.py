@@ -40,6 +40,7 @@ class CUB(Dataset):
         self.data = data
         self.label = label
         self.num_class = np.unique(np.array(label)).shape[0]
+        self.vis = args.vis
 
 
         if args.model_type == 'AmdimNet':
@@ -69,6 +70,7 @@ class CUB(Dataset):
 
     def __getitem__(self, i):
         path, label = self.data[i], self.label[i]
-        image = self.transform(Image.open(path).convert('RGB'))
-        return image, label            
+        transformed_img = self.transform(Image.open(path).convert('RGB'))
+        if self.vis: return transformed_img, path, label   
+        return transformed_img, label            
 
