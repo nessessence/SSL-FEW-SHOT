@@ -20,10 +20,10 @@ class ProtoNet(nn.Module):
             raise ValueError('')
 
     # n_nclass
-    def forward(self, data_shot, data_query, n_nclass=None):
+    def forward(self, data_shot, data_query, class_lens=None):
         proto = self.encoder(data_shot) 
-        if n_nclass: 
-            indices = torch.cumsum(n_nclass) 
+        if class_lens: 
+            indices = torch.cumsum(class_lens) 
             indices = torch.cat([torch.tensor[0],indices])
             proto = torch([ torch.mean(proto[indices[i]:indices[i+1]]) for i in range(len(indices)-1)])
         else: proto = proto.reshape(self.args.shot, self.args.way, -1).mean(dim=0)
