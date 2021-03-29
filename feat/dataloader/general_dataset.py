@@ -33,11 +33,14 @@ class General_dataset(Dataset):
         label_names = [ dirname for dirname in dirnames]
         # labels = [i for i in range(len(label_names))]
         query = get_imgpath_from_dir(osp.join(root_path,'Query'))
-        gallery = []; class_lens = []
-        for dirname in dirnames:
+        gallery = []; class_lens = []; gallery_labels = []
+
+        for i,dirname in enumerate(dirnames):
             class_label = get_imgpath_from_dir(dirname)
             gallery += class_label
             class_lens.append(len(class_label))
+            gallery_labels += len(class_label)*[i]
+
 
         # all_img_paths = glob.glob(glob.escape(self.data_dir_path)+'/**/*.png' , recursive=True)+glob.glob(glob.escape(self.data_dir_path)+'/**/*.jpg' , recursive=True)
         # query_img_paths =  glob.glob(glob.escape(self.data_dir_path)+'/query/*.png' , recursive=True)+glob.glob(glob.escape(self.data_dir_path)+'/query/*.jpg' , recursive=True)
@@ -49,6 +52,7 @@ class General_dataset(Dataset):
         self.gallery = gallery
         self.num_class = len(label_names)
         self.label_names = label_names
+        self.gallery_labels = gallery_labels
         self.class_lens = class_lens
         self.vis = args.vis
 
@@ -79,7 +83,7 @@ class General_dataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, i):
-        path, label = self.data[i], self.label[i]
+        path, label = self.data[i], None #, self.label[i]
         transformed_img = self.transform(Image.open(path).convert('RGB'))
         if self.vis: return transformed_img, path, label   
         return transformed_img, label            
