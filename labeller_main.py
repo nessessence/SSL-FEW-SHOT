@@ -43,7 +43,8 @@ def save_checkpoint(args,features_dict,labels_dict,dataset):
 
 def main():
     args = parser.parse_args() 
-    args.out_name = osp.basename(osp.dirname(args.data_path)) if not args.out_name else None
+    if not args.out_name:
+        args.out_name = osp.basename(osp.dirname(args.data_path))
     pprint(vars(args))
     if  args.load_checkpoint and os.path.isdir(osp.join(args.logs_dir, args.out_name)): 
         features_dict,labels_dict,dataset = load_checkpoint(args)
