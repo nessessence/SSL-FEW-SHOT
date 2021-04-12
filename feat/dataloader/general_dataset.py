@@ -9,14 +9,8 @@ from torchvision import transforms
 import glob
 
 
-# THIS_PATH = osp.dirname(__file__)
-# ROOT_PATH = osp.abspath(osp.join(THIS_PATH, '..', '..'))
-# IMAGE_PATH = osp.join(ROOT_PATH, 'data/cub/images')
-# SPLIT_PATH = osp.join(ROOT_PATH, 'data/cub/split')
 
-# This is for the CUB dataset, which does not support the ResNet encoder now
-# It is notable, we assume the cub images are cropped based on the given bounding boxes
-# The concept labels are based on the attribute value, which are for further use (and not used in this work)
+
 class General_dataset(Dataset):
 
     def __init__(self, args):
@@ -26,33 +20,27 @@ class General_dataset(Dataset):
         def get_imgpath_from_dir(dir_path):
             return glob.glob(glob.escape(dir_path)+'/*.png') + glob.glob(glob.escape(dir_path)+'/*.jpg')
 
-        # self.data_dir_path = osp.join( osp.dirname(__file__), args.data_path )
         self.data_dir_path = args.data_path
         root_path, dirnames, _ = next(os.walk(self.data_dir_path))
         dirnames.remove('Query')
         label_names = [ dirname for dirname in dirnames]
-        # labels = [i for i in range(len(label_names))]
         query = get_imgpath_from_dir(osp.join(root_path,'Query'))
-        gallery = []; class_lens = []; gallery_labels = []
+        support = []; class_lens = []; support_labels = []
 
         for i,dirname in enumerate(dirnames):
-            class_label = get_imgpath_from_dir(dirname)
-            gallery += class_label
-            class_lens.append(len(class_label))
-            gallery_labels += len(class_label)*[i]
+            img_paths = get_imgpath_from_dir(osp.join(root_path,dirname))
+            support += img_paths
+            class_lens.append(len(img_paths))
+            support_labels += len(img_paths)*[i]  # i: label
 
 
-        # all_img_paths = glob.glob(glob.escape(self.data_dir_path)+'/**/*.png' , recursive=True)+glob.glob(glob.escape(self.data_dir_path)+'/**/*.jpg' , recursive=True)
-        # query_img_paths =  glob.glob(glob.escape(self.data_dir_path)+'/query/*.png' , recursive=True)+glob.glob(glob.escape(self.data_dir_path)+'/query/*.jpg' , recursive=True)
-        # gallery_img_paths =[ img_path for img_path in query_img_paths if img_path not in query_img_paths ]
-        # if label: gallery_img_label = [ osp.basename(osp.dirname(img_path)) for img_path in gallery_img_paths]
 
-        self.data = query + gallery
+        self.data = query + support
         self.query = query
-        self.gallery = gallery
+        self.support = support
         self.num_class = len(label_names)
-        self.label_names = label_names
-        self.gallery_labels = gallery_labels
+        self.label_names = label_names # str label
+        self.support_labels = support_labels # int label
         self.class_lens = class_lens
         self.vis = args.vis
 
@@ -83,8 +71,8 @@ class General_dataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, i):
-        path, label = self.data[i], None #, self.label[i]
+        path = self.data[i]
+        label = self.label_names[self.support_labels[i-len(self.query)]] if i > len(self.query) else '' # can't be None!!!
         transformed_img = self.transform(Image.open(path).convert('RGB'))
-        if self.vis: return transformed_img, path, label   
-        return transformed_img, label            
+        return transformed_img, path, label            
 
