@@ -71,7 +71,7 @@ def get_label(
         print("start new process")
         print(args.load_checkpoint,os.path.isdir(osp.join(args.logs_dir, args.out_name)))
         print("model init...")
-        model_weight = torch.load('./pretrained/imagenet1K_ndf192_rkhs_1536_rd8_ssl_cpt.pth')
+        model_weight = torch.load('./ssl_fewshot/pretrained/imagenet1K_ndf192_rkhs_1536_rd8_ssl_cpt.pth')
         model = AmdimNet(ndf=args.ndf, n_rkhs=args.rkhs, n_depth=args.nd)
         model_dict = model.state_dict()
         pretrained_dict = model_weight['model']
