@@ -5,18 +5,17 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from feat.dataloader.samplers import CategoriesSampler
-from feat.utils import pprint, set_gpu, ensure_path, Averager, Timer, count_acc, compute_confidence_interval
-from feat.dataloader.cub import CUB as Dataset
-import matplotlib.pyplot as plt
+from ssl_fewshot.feat.dataloader.samplers import CategoriesSampler
+from ssl_fewshot.feat.utils import pprint, set_gpu, ensure_path, Averager, Timer, count_acc, compute_confidence_interval
+from ssl_fewshot.feat.dataloader.cub import CUB as Dataset
 
 
-from feat.networks.amdimnet import AmdimNet
-from feat.dataloader.general_dataset import General_dataset as Dataset # general dataset!
+from ssl_fewshot.feat.networks.amdimnet import AmdimNet
+from ssl_fewshot.feat.dataloader.general_dataset import General_dataset as Dataset # general dataset!
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from feat.utils import euclidean_metric
+from ssl_fewshot.feat.utils import euclidean_metric
 
 
 def load_checkpoint(args):
@@ -63,7 +62,8 @@ def get_label(
         temperature=1,
         vis=True
     )
-    args.out_name = osp.basename(osp.dirname(args.data_path)) if not args.out_name else None
+    if not args.out_name:
+        args.out_name = osp.basename(osp.dirname(args.data_path)) 
     pprint(vars(args))
     if  args.load_checkpoint and os.path.isdir(osp.join(args.logs_dir, args.out_name)): 
         features_dict,labels_dict,dataset = load_checkpoint(args)
