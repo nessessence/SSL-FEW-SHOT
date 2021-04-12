@@ -60,7 +60,7 @@ def get_label(
         load_checkpoint=_load_checkpoint,
         out_name=out_name,
         model_type=model_type,
-        temperature=128,
+        temperature=1,
         vis=True
     )
     args.out_name = osp.basename(osp.dirname(args.data_path)) if not args.out_name else None
