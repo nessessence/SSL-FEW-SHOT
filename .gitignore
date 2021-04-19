@@ -1,3 +1,4 @@
 /data/*
 /pretrained/*
 /logs/*
+__pycache__/
