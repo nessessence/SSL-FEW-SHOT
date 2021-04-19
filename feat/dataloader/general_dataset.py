@@ -18,7 +18,7 @@ class General_dataset(Dataset):
         
 
         def get_imgpath_from_dir(dir_path):
-            return glob.glob(glob.escape(dir_path)+'/*.png') + glob.glob(glob.escape(dir_path)+'/*.jpg')
+            return glob.glob(glob.escape(dir_path)+'/*.png') + glob.glob(glob.escape(dir_path)+'/*.jpg') + glob.glob(glob.escape(dir_path)+'/*.JPG')
 
         self.data_dir_path = args.data_path
         root_path, dirnames, _ = next(os.walk(self.data_dir_path))
@@ -32,7 +32,6 @@ class General_dataset(Dataset):
             support += img_paths
             class_lens.append(len(img_paths))
             support_labels += len(img_paths)*[i]  # i: label
-
 
 
         self.data = query + support
