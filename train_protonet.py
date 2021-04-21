@@ -1,5 +1,6 @@
 import argparse
 import os.path as osp
+import os
 
 import numpy as np
 import torch
@@ -9,6 +10,10 @@ from feat.dataloader.samplers import CategoriesSampler
 from feat.models.protonet import ProtoNet
 from feat.utils import pprint, set_gpu, ensure_path, Averager, Timer, count_acc, compute_confidence_interval
 from tensorboardX import SummaryWriter
+
+from feat.logger.logging import Logger
+import sys
+
 
 
 if __name__ == '__main__':
@@ -35,17 +40,18 @@ if __name__ == '__main__':
     parser.add_argument('--rkhs', type=int, default=2048)
     parser.add_argument('--nd', type=int, default=10)
 
+    parser.add_argument('--trlog_checkpoint', type=str, default=None)
+    parser.add_argument('--model_checkpoint', type=str, default=None)
+
+    parser.add_argument('--load_train_checkpoint',action='store_true')
+
 
     args = parser.parse_args()
+    sys.stdout = Logger(osp.join(args.save_path, 'log.txt'),append=args.load_train_checkpoint)
     pprint(vars(args))
 
     set_gpu(args.gpu)
-    save_path1 = '-'.join([args.dataset, args.model_type, 'ProtoNet'])
-    save_path2 = '_'.join([str(args.shot), str(args.query), str(args.way), 
-                               str(args.step_size), str(args.gamma), str(args.lr), str(args.temperature)])
-    args.save_path = osp.join(args.save_path, osp.join(save_path1, save_path2))
-    ensure_path(save_path1, remove=False)
-    ensure_path(args.save_path)  
+
 
     if args.dataset == 'MiniImageNet':
         # Handle MiniImageNet
@@ -78,48 +84,80 @@ if __name__ == '__main__':
     
     # load pre-trained model (no FC weights)
 
+    args.out_name = osp.basename(osp.dirname(args.save_path))
+
+
+
     model_dict = model.state_dict()
 
     if args.init_weights is not None:
         model_detail = torch.load(args.init_weights)
-        if 'params' in model_detail:
-            pretrained_dict = model_detail['params']
-            # remove weights for FC
-            pretrained_dict = {'encoder.'+k: v for k, v in pretrained_dict.items()}
-            pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
-            print(pretrained_dict.keys())
-            model_dict.update(pretrained_dict)
-        else:
-            pretrained_dict = model_detail['model']
-            #print(model_dict.keys())
-            #print(pretrained_dict.keys())
-            pretrained_dict = {k.replace('module.', ''): v for k, v in pretrained_dict.items() if k.replace('module.', '') in model_dict}
-            #print(pretrained_dict.keys())
-
-            model_dict.update(pretrained_dict)
+        if  isinstance(model_detail, dict):
+            if 'params' in model_detail:
+                pretrained_dict = model_detail['params']
+                # remove weights for FC
+                pretrained_dict = {'encoder.'+k: v for k, v in pretrained_dict.items()}
+                pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+                print(pretrained_dict.keys())
+                model_dict.update(pretrained_dict)
+            else:
+                pretrained_dict = model_detail['model']
+                pretrained_dict = {k.replace('module.', ''): v for k, v in pretrained_dict.items() if k.replace('module.', '') in model_dict}
+                model_dict.update(pretrained_dict)
+            
+        else: 
+            model_dict = model_detail
     model.load_state_dict(model_dict)    
     
     if torch.cuda.is_available():
         torch.backends.cudnn.benchmark = True
         model = model.cuda()
     
-    def save_model(name):
-        torch.save(dict(params=model.state_dict()), osp.join(args.save_path, name + '.pth'))
+    def save_model(flag):
+        if not os.path.isdir( os.path.join(args.save_path) ):
+            print("make new directory:")
+            os.mkdir(os.path.join(args.logs_dir, args.save_path))
+        torch.save(model.encoder.state_dict(), osp.join(args.save_path, f"modelEncoder_{args.out_name}_{flag}.pth")) # Note: save "encoder" eg AmdimNet, not the protoNet
+        if flag == 'epoch_last':
+            torch.save(trlog, osp.join(args.save_path,f"trainlog_{args.out_name}_{flag}.pth"))
+            torch.save(optimizer.state_dict(),osp.join(args.save_path,f"optimizer_{args.out_name}_{flag}.pth"))
+        print(f"save checkpoint [{flag}] at {args.save_path}")
+
     
-    trlog = {}
-    trlog['args'] = vars(args)
-    trlog['train_loss'] = []
-    trlog['val_loss'] = []
-    trlog['train_acc'] = []
-    trlog['val_acc'] = []
-    trlog['max_acc'] = 0.0
-    trlog['max_acc_epoch'] = 0
+
+    if args.load_train_checkpoint:
+        flag = 'epoch_last'
+        if osp.isdir(osp.join(args.save_path)) and not (args.trlog_checkpoint and args.model_checkpoint ):
+            encoder_weight = torch.load(osp.join(args.save_path, f"modelEncoder_{args.out_name}_{flag}.pth"))
+            trlog = torch.load(osp.join(args.save_path,f"trainlog_{args.out_name}_{flag}.pth"))
+            optimizer.load_state_dict(torch.load(osp.join(args.save_path,f"optimizer_{args.out_name}_{flag}.pth")))
+        else:
+            trlog = torch.load(args.trlog_checkpoint)
+            encoder_weight = torch.load(args.model_checkpoint)
+        model.encoder.load_state_dict(encoder_weight)
+        print("load training checkpoint complete")
+        
+    
+    else:
+        trlog = {}
+        trlog['args'] = vars(args)
+        trlog['train_loss'] = []
+        trlog['val_loss'] = []
+        trlog['train_acc'] = []
+        trlog['val_acc'] = []
+        trlog['max_acc'] = 0.0
+        trlog['max_acc_epoch'] = 0
+        trlog['cur_train_epoch'] = 0
+        print("start new training")
+
+    start_epoch = trlog['cur_train_epoch']+1
+    print(f"start training from epoch: {start_epoch}")
 
     timer = Timer()
     global_count = 0
     writer = SummaryWriter(logdir=args.save_path)
     
-    for epoch in range(1, args.max_epoch + 1):
+    for epoch in range(start_epoch, args.max_epoch + 1):
         lr_scheduler.step()
         model.train()
         tl = Averager()
@@ -169,6 +207,7 @@ if __name__ == '__main__':
             label = label.type(torch.LongTensor)
             
         print('best epoch {}, best val acc={:.4f}'.format(trlog['max_acc_epoch'], trlog['max_acc']))
+        print('evaluating:')
         with torch.no_grad():
             for i, batch in enumerate(val_loader, 1):
                 if torch.cuda.is_available():
@@ -200,21 +239,23 @@ if __name__ == '__main__':
         trlog['val_loss'].append(vl)
         trlog['val_acc'].append(va)
 
-        torch.save(trlog, osp.join(args.save_path, 'trlog'))
+        trlog['cur_train_epoch'] = epoch
+        save_model('epoch_last')
 
-        save_model('epoch-last')
+        
 
         print('ETA:{}/{}'.format(timer.measure(), timer.measure(epoch / args.max_epoch)))
     writer.close()
 
     # Test Phase
-    trlog = torch.load(osp.join(args.save_path, 'trlog'))
+    flag = 'epoch_last'
+    trlog = torch.load(osp.join(args.save_path, f"trainlog_{args.out_name}_{flag}.pth"))
     test_set = Dataset('test', args)
     sampler = CategoriesSampler(test_set.label, 10000, args.way, args.shot + args.query)
     loader = DataLoader(test_set, batch_sampler=sampler, num_workers=8, pin_memory=True)
     test_acc_record = np.zeros((10000,))
 
-    model.load_state_dict(torch.load(osp.join(args.save_path, 'max_acc' + '.pth'))['params'])
+    model.encoder.load_state_dict(torch.load(osp.join(args.save_path, f"modelEncoder_{args.out_name}_{flag}.pth")))
     model.eval()
 
     ave_acc = Averager()
