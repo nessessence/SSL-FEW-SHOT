@@ -60,13 +60,29 @@ def get_label(
         out_name=out_name,
         model_type=model_type,
         temperature=1,
-        vis=True
+        vis=True,
+
     )
     if not args.out_name:
         args.out_name = osp.basename(osp.dirname(args.data_path)) 
     pprint(vars(args))
     if  args.load_checkpoint and os.path.isdir(osp.join(args.logs_dir, args.out_name)): 
         features_dict,labels_dict,dataset = load_checkpoint(args)
+        new_dataset = Dataset(args)
+        new_supports = set( [q for q in dataset.query if q not in new_dataset.query] )
+        print(f"adjusting new {len(new_supports)} support data")
+        for g in dataset.support:
+            g_query_path = ops.join( osp.dirname(osp.dirname(g)),'Query', osp.basename(g))
+            if g_query_path in new_supports:
+                features_dict[g] = features[g_query_path]
+                labels_dict[g] = osp.basename(osp.dirname(g))
+                del features_dict[g_query_path]
+                del labels_dict[g_query_path]
+        print(f"adjusting new support data complete")
+        dataset = new_dataset
+        save_checkpoint(args,features_dict,labels_dict,dataset)
+        print("saving checkpoints log complete")
+        
     else:
         print("start new process")
         print(args.load_checkpoint,os.path.isdir(osp.join(args.logs_dir, args.out_name)))
@@ -74,8 +90,11 @@ def get_label(
         model_weight = torch.load('./ssl_fewshot/pretrained/modelEncoder_Ness_MINI_ProtoNet_MINI_5shot_10way_max_acc.pth')
         model = AmdimNet(ndf=args.ndf, n_rkhs=args.rkhs, n_depth=args.nd)
         model_dict = model.state_dict()
-        pretrained_dict = model_weight['model']
-        pretrained_dict = {k.replace('module.', ''): v for k, v in pretrained_dict.items() if k.replace('module.', '') in model_dict}
+        if isinstance(model_weight, dict):
+            pretrained_dict = model_weight['model']
+            pretrained_dict = {k.replace('module.', ''): v for k, v in pretrained_dict.items() if k.replace('module.', '') in model_dict}
+        else:
+            pretrained_dict = model_weight
         model_dict.update(pretrained_dict)
         model.load_state_dict(model_dict)
         model.eval()
