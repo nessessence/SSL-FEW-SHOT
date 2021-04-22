@@ -90,7 +90,7 @@ def get_label(
         model_weight = torch.load('./ssl_fewshot/pretrained/modelEncoder_Ness_MINI_ProtoNet_MINI_5shot_10way_max_acc.pth')
         model = AmdimNet(ndf=args.ndf, n_rkhs=args.rkhs, n_depth=args.nd)
         model_dict = model.state_dict()
-        if isinstance(model_weight, dict):
+        if isinstance(model_weight, dict) and ('model' in model_weight):
             pretrained_dict = model_weight['model']
             pretrained_dict = {k.replace('module.', ''): v for k, v in pretrained_dict.items() if k.replace('module.', '') in model_dict}
         else:
