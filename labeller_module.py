@@ -59,7 +59,7 @@ def get_label(
         load_checkpoint=_load_checkpoint,
         out_name=out_name,
         model_type=model_type,
-        temperature=1,
+        temperature=128,
         vis=True,
 
     )
@@ -72,7 +72,7 @@ def get_label(
         new_supports = set( [q for q in dataset.query if q not in new_dataset.query] )
         print(f"adjusting new {len(new_supports)} support data")
         for g in dataset.support:
-            g_query_path = ops.join( osp.dirname(osp.dirname(g)),'Query', osp.basename(g))
+            g_query_path = osp.join( osp.dirname(osp.dirname(g)),'Query', osp.basename(g))
             if g_query_path in new_supports:
                 features_dict[g] = features[g_query_path]
                 labels_dict[g] = osp.basename(osp.dirname(g))
