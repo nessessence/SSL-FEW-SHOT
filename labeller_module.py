@@ -71,13 +71,13 @@ def get_label(
         new_dataset = Dataset(args)
         new_supports = set( [q for q in dataset.query if q not in new_dataset.query] )
         print(f"adjusting new {len(new_supports)} support data")
-        for g in dataset.support:
-            g_query_path = osp.join( osp.dirname(osp.dirname(g)),'Query', osp.basename(g))
-            if g_query_path in new_supports:
-                features_dict[g] = features[g_query_path]
-                labels_dict[g] = osp.basename(osp.dirname(g))
-                del features_dict[g_query_path]
-                del labels_dict[g_query_path]
+        for s in new_dataset.support:
+            s_query_path = osp.join( osp.dirname(osp.dirname(s)),'Query', osp.basename(s))
+            if s_query_path in new_supports:
+                features_dict[s] = features_dict[s_query_path]
+                labels_dict[s] = osp.basename(osp.dirname(s))
+                del features_dict[s_query_path]
+                del labels_dict[s_query_path]
         print(f"adjusting new support data complete")
         dataset = new_dataset
         save_checkpoint(args,features_dict,labels_dict,dataset)
